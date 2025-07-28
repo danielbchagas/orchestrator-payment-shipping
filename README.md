@@ -18,13 +18,13 @@ Samples.Orchestrator/
 │       ├── Payment/
 │       │   ├── Accepted.cs
 │       │   ├── Cancelled.cs
-│       │   ├── Rollback.cs
+│       │   ├── DeadLetter.cs
 │       │   └── Submitted.cs
 │       │
 │       └── Shipping/
 │           ├── Accepted.cs
 │           ├── Cancelled.cs
-│           ├── Rollback.cs
+│           ├── DeadLetter.cs
 │           └── Submitted.cs
 │
 ├── Infrastructure/
