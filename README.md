@@ -22,10 +22,14 @@ Samples.Orchestrator/
 │       │   └── Submitted.cs
 │       │
 │       └── Shipping/
-│           ├── Accepted.cs
-│           ├── Cancelled.cs
-│           ├── DeadLetter.cs
-│           └── Submitted.cs
+│       |   ├── Accepted.cs
+│       |   ├── Cancelled.cs
+│       |   ├── DeadLetter.cs
+│       |   └── Submitted.cs
+|       └──
+|       |
+|       ├── Final/
+|       ├   ├── Final.cs
 │
 ├── Infrastructure/
 │   ├── Database/
