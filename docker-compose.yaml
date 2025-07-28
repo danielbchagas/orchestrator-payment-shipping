@@ -1,0 +1,84 @@
+  version: '3.8'
+  
+  services:
+    # Zookeeper (necessário para Kafka)
+    zookeeper:
+      image: confluentinc/cp-zookeeper:7.5.0
+      container_name: zookeeper
+      ports:
+        - "2181:2181"
+      environment:
+        ZOOKEEPER_CLIENT_PORT: 2181
+        ZOOKEEPER_TICK_TIME: 2000
+    
+    # Kafka
+    kafka:
+      image: confluentinc/cp-kafka:7.5.0
+      container_name: kafka
+      depends_on:
+        - zookeeper
+      ports:
+        - "9092:9092"         # Acesso local (host)
+        - "29092:29092"       # Acesso entre containers
+      environment:
+        KAFKA_BROKER_ID: 1
+        KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+        KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    
+    # Novo serviço para criação automática de tópicos
+    kafka-topic-creator:
+      image: confluentinc/cp-kafka:7.5.0
+      container_name: kafka-topic-creator
+      depends_on:
+        - kafka
+      command: >
+        sh -c "
+          echo 'Aguardando o Kafka ficar disponível...' &&
+          cub kafka-ready -b kafka:29092 1 20 &&
+          echo 'Kafka pronto! Criando tópicos...' &&
+        
+          kafka-topics --create --topic previous-customer-credit-classification-requested --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+          kafka-topics --create --topic previous-customer-credit-classification-succeeded --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+          kafka-topics --create --topic previous-customer-credit-classification-failed --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        
+          kafka-topics --create --topic acl-customer-credit-classification-requested --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+          kafka-topics --create --topic acl-customer-credit-classification-succeeded --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+          kafka-topics --create --topic acl-customer-credit-classification-failed --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        
+          kafka-topics --create --topic next-customer-credit-classification-requested --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+          kafka-topics --create --topic next-customer-credit-classification-succeeded --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+          kafka-topics --create --topic next-customer-credit-classification-failed --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 &&
+        
+          echo 'Tópicos criados com sucesso!'"
+    
+    # PostgreSQL
+    postgres:
+      image: postgres:15
+      container_name: postgres
+      restart: always
+      ports:
+        - "5432:5432"
+      environment:
+        POSTGRES_USER: devuser
+        POSTGRES_PASSWORD: devpass
+        POSTGRES_DB: orchestrator_db
+      volumes:
+        - postgres_data:/var/lib/postgresql/data
+    
+    # Kafka UI (opcional)
+    kafka-ui:
+      image: provectuslabs/kafka-ui:latest
+      container_name: kafka-ui
+      ports:
+        - "8080:8080"
+      depends_on:
+        - kafka
+      environment:
+        KAFKA_CLUSTERS_0_NAME: local
+        KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+  
+  volumes:
+    postgres_data:

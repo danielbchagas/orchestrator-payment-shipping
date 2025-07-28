@@ -1,0 +1,10 @@
+### Get Order by ID
+@id = 1
+GET {{host}}/order-states/{{id}}
+Content-Type: application/json
+
+### Get Orders with Pagination
+@page = 1
+@pageSize = 10
+GET {{host}}/order-states/{{page}}/{{pageSize}}
+Content-Type: application/json
