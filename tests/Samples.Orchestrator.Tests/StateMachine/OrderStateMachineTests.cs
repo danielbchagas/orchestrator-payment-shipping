@@ -207,4 +207,78 @@ public class OrderStateMachineTests
 
         await _harness.Stop();
     }
+
+    [Fact]
+    public async Task Should_TransitionTo_PaymentDeadLetter_When_PaymentSubmittedRetryExceeded()
+    {
+        // Arrange
+        await using var provider = new ServiceCollection()
+            .AddSingleton(Configuration)
+            .AddSingleton(BrokerSettingsFactory.Object)
+            .AddMassTransitTestHarness(config =>
+            {
+                config.AddSagaStateMachine<OrderStateMachine, OrderState>();
+            })
+            .BuildServiceProvider(true);
+
+        var _harness = provider.GetRequiredService<ITestHarness>();
+
+        var sagaHarness = _harness.GetSagaStateMachineHarness<OrderStateMachine, OrderState>();
+        await _harness.Start();
+
+        var sagaId = NewId.NextGuid();
+
+        // Act
+        await _harness.Bus.Publish(new InitialEvent { CorrelationId = sagaId, CurrentState = InitialEvent, Payload = Payload });
+        await _harness.Bus.Publish(new Payment.Submitted { CorrelationId = sagaId, CurrentState = PaymentSubmitted, Payload = Payload, RetryCount = 4 });
+
+        var instance = await sagaHarness.Exists(sagaId, x => x.PaymentDeadLetterState);
+
+        // Assert
+        instance.Should().NotBeNull();
+        sagaHarness.Consumed.Select<InitialEvent>().Any().Should().BeTrue();
+        sagaHarness.Consumed.Select<Payment.Submitted>().Any().Should().BeTrue();
+        sagaHarness.Consumed.Select<Payment.DeadLetter>().Any().Should().BeTrue();
+
+        await _harness.Stop();
+    }
+
+    [Fact]
+    public async Task Should_TransitionTo_ShippingDeadLetter_When_ShippingSubmittedRetryExceeded()
+    {
+        // Arrange
+        await using var provider = new ServiceCollection()
+            .AddSingleton(Configuration)
+            .AddSingleton(BrokerSettingsFactory.Object)
+            .AddMassTransitTestHarness(config =>
+            {
+                config.AddSagaStateMachine<OrderStateMachine, OrderState>();
+            })
+            .BuildServiceProvider(true);
+
+        var _harness = provider.GetRequiredService<ITestHarness>();
+
+        var sagaHarness = _harness.GetSagaStateMachineHarness<OrderStateMachine, OrderState>();
+        await _harness.Start();
+
+        var sagaId = NewId.NextGuid();
+
+        // Act
+        await _harness.Bus.Publish(new InitialEvent { CorrelationId = sagaId, CurrentState = InitialEvent, Payload = Payload });
+        await _harness.Bus.Publish(new Payment.Submitted { CorrelationId = sagaId, CurrentState = PaymentSubmitted, Payload = Payload });
+        await _harness.Bus.Publish(new Payment.Accepted { CorrelationId = sagaId, CurrentState = PaymentAccepted, Payload = Payload });
+        await _harness.Bus.Publish(new Shipping.Submitted { CorrelationId = sagaId, CurrentState = ShippingSubmitted, Payload = Payload, RetryCount = 4 });
+
+        var instance = await sagaHarness.Exists(sagaId, x => x.ShippingDeadLetterState);
+
+        // Assert
+        instance.Should().NotBeNull();
+        sagaHarness.Consumed.Select<InitialEvent>().Any().Should().BeTrue();
+        sagaHarness.Consumed.Select<Payment.Submitted>().Any().Should().BeTrue();
+        sagaHarness.Consumed.Select<Payment.Accepted>().Any().Should().BeTrue();
+        sagaHarness.Consumed.Select<Shipping.Submitted>().Any().Should().BeTrue();
+        sagaHarness.Consumed.Select<Shipping.DeadLetter>().Any().Should().BeTrue();
+
+        await _harness.Stop();
+    }
 }
