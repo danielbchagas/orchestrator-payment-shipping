@@ -19,7 +19,6 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
     public State PaymentDeadLetterState { get; private set; }
 
     public State ShippingSubmittedState { get; private set; }
-    public State ShippingAcceptedState { get; private set; }
     public State ShippingCancelledState { get; private set; }
     public State ShippingDeadLetterState { get; private set; }
 
@@ -38,8 +37,6 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
     public Event<Shipping.Accepted> ShippingAcceptedEvent { get; private set; }
     public Event<Shipping.Cancelled> ShippingCancelledEvent { get; private set; }
     public Event<Shipping.DeadLetter> ShippingDeadLetterEvent { get; private set; }
-
-    public Event<FinalEvent> FinalEvent { get; private set; }
     #endregion
 
     public OrderStateMachine(ILogger<OrderStateMachine> logger, IConfiguration configuration, IBrokerSettingsFactory brokerSettingsFactory)
@@ -62,8 +59,6 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
         Event(() => ShippingCancelledEvent);
         Event(() => ShippingDeadLetterEvent);
 
-        Event(() => FinalEvent);
-
         #endregion
 
         #region Configure States
@@ -76,7 +71,6 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
         State(() => PaymentDeadLetterState);
 
         State(() => ShippingSubmittedState);
-        State(() => ShippingAcceptedState);
         State(() => ShippingCancelledState);
         State(() => ShippingDeadLetterState);
 
@@ -187,7 +181,6 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
         During(ShippingSubmittedState,
             When(ShippingAcceptedEvent)
                 .Then(context => LogMessage(logger, context.Message))
-                .TransitionTo(ShippingAcceptedState)
                 .PublishAsync(async context =>
                 {
                     await context.Init<FinalEvent>(new
@@ -197,7 +190,7 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                         context.Message.Payload,
                         context.Message.CreatedAt
                     });
-                    
+
                     return context;
                 })
                 .TransitionTo(FinalState),

@@ -127,7 +127,7 @@ public class OrderStateMachineTests
     }
 
     [Fact]
-    public async Task Should_TransitionTo_ShippingAccepted_When_ShippingAcceptedEventReceived()
+    public async Task Should_TransitionTo_Final_When_ShippingAcceptedEventReceived()
     {
         // Arrange
         await using var provider = new ServiceCollection()
@@ -151,10 +151,8 @@ public class OrderStateMachineTests
         await _harness.Bus.Publish(new Payment.Submitted { CorrelationId = sagaId, CurrentState = PaymentSubmitted, Payload = Payload });
         await _harness.Bus.Publish(new Payment.Accepted { CorrelationId = sagaId, CurrentState = PaymentAccepted, Payload = Payload });
         await _harness.Bus.Publish(new Shipping.Submitted { CorrelationId = sagaId, CurrentState =  ShippingSubmitted, Payload = Payload });
-        await _harness.Bus.Publish(new Shipping.Accepted { CorrelationId = sagaId, CurrentState =  ShippingAccepted, Payload = Payload });
-        await _harness.Bus.Publish(new FinalEvent { CorrelationId = sagaId, CurrentState = "Final", Payload = Payload });
-                
-        var instance = await sagaHarness.Exists(sagaId, x => x.ShippingAcceptedState);
+        await _harness.Bus.Publish(new Shipping.Accepted { CorrelationId = sagaId, CurrentState =  ShippingAccepted, Payload = Payload });                
+        var instance = await sagaHarness.Exists(sagaId, x => x.FinalState);
                 
         // Assert
         instance.Should().NotBeNull();
@@ -163,7 +161,7 @@ public class OrderStateMachineTests
         sagaHarness.Consumed.Select<Payment.Accepted>().Any().Should().BeTrue();
         sagaHarness.Consumed.Select<Shipping.Submitted>().Any().Should().BeTrue();
         sagaHarness.Consumed.Select<Shipping.Accepted>().Any().Should().BeTrue();
-        sagaHarness.Consumed.Select<FinalEvent>().Any().Should().BeTrue();
+        _harness.Published.Select<FinalEvent>().Any().Should().BeTrue();
                 
         await _harness.Stop();
     }
