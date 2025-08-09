@@ -35,7 +35,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Samples.Orchestrator.Core\Samples.Orchestrator.Core.csproj" />
-      <ProjectReference Include="..\Samples.Orchestrator.Core\Samples.Orchestrator.Core.csproj" />
     </ItemGroup>
 
 </Project>
