@@ -90,43 +90,32 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
                 .TransitionTo(InitialState)
         );
 
-        During(InitialState,
+        During(Initial,
             When(PaymentSubmittedEvent)
-                .IfElse(x => x.Saga.RetryCount > 3, thenCallback =>
-                {
-                    thenCallback.PublishAsync(async context =>
-                    {
-                        await context.Init<Payment.DeadLetter>(new
+                .IfElse(ctx => ctx.Message.RetryCount > 3,
+                    thenBinder => thenBinder
+                        .PublishAsync(ctx => ctx.Init<Payment.DeadLetter>(new
                         {
-                            context.CorrelationId,
-                            context.Message.CurrentState,
-                            context.Saga.RetryCount,
-                            context.Message.Payload,
-                            context.Message.CreatedAt
-                        });
-                        
-                        return context;
-                    });
-                    
-                    return thenCallback;
-                }, elseCallback =>
-                {
-                    elseCallback.PublishAsync(async context =>
-                    {
-                        await context.Init<Payment.Submitted>(new
+                            ctx.Saga.CorrelationId,
+                            ctx.Saga.CurrentState,
+                            ctx.Message.RetryCount,
+                            ctx.Message.Payload,
+                            ctx.Message.CreatedAt
+                        }))
+                        .Then(ctx => LogMessage(logger, ctx.Message))
+                        .TransitionTo(PaymentDeadLetterState),
+
+                    elseBinder => elseBinder
+                        .PublishAsync(ctx => ctx.Init<Payment.Submitted>(new
                         {
-                            context.CorrelationId,
-                            context.Message.CurrentState,
-                            context.Message.Payload,
-                            context.Message.CreatedAt
-                        });
-                        
-                        return context;
-                    });
-                    return elseCallback;
-                })
-                .Then(context => LogMessage(logger, context.Message))
-                .TransitionTo(PaymentSubmittedState)
+                            ctx.Saga.CorrelationId,
+                            ctx.Saga.CurrentState,
+                            ctx.Message.Payload,
+                            ctx.Message.CreatedAt
+                        }))
+                        .Then(ctx => LogMessage(logger, ctx.Message))
+                        .TransitionTo(PaymentSubmittedState)
+                )
         );
 
         During(PaymentSubmittedState,
@@ -141,58 +130,42 @@ public class OrderStateMachine : MassTransitStateMachine<OrderState>
 
         During(PaymentAcceptedState,
             When(ShippingSubmittedEvent)
-                .IfElse(x => x.Saga.RetryCount > 3, thenCallback =>
-                {
-                    thenCallback.PublishAsync(async context =>
-                    {
-                        await context.Init<Shipping.DeadLetter>(new
+                .IfElse(ctx => ctx.Message.RetryCount > 3,
+                    thenBinder => thenBinder
+                        .PublishAsync(ctx => ctx.Init<Shipping.DeadLetter>(new
                         {
-                            context.CorrelationId,
-                            context.Message.CurrentState,
-                            context.Saga.RetryCount,
-                            context.Message.Payload,
-                            context.Message.CreatedAt
-                        });
-                        
-                        return context;
-                    });
-                    
-                    return thenCallback;
-                }, elseCallback =>
-                {
-                    elseCallback.PublishAsync(async context =>
-                    {
-                        await context.Init<Shipping.Submitted>(new
+                            ctx.Saga.CorrelationId,
+                            ctx.Message.CurrentState,
+                            ctx.Message.RetryCount,
+                            ctx.Message.Payload,
+                            ctx.Message.CreatedAt
+                        }))
+                        .Then(ctx => LogMessage(logger, ctx.Message))
+                        .TransitionTo(ShippingDeadLetterState),
+
+                    elseBinder => elseBinder
+                        .PublishAsync(ctx => ctx.Init<Shipping.Submitted>(new
                         {
-                            context.CorrelationId,
-                            context.Message.CurrentState,
-                            context.Message.Payload,
-                            context.Message.CreatedAt
-                        });
-                        
-                        return context;
-                    });
-                    return elseCallback;
-                })
-                .Then(context => LogMessage(logger, context.Message))
-                .TransitionTo(ShippingSubmittedState)
+                            ctx.Saga.CorrelationId,
+                            ctx.Message.CurrentState,
+                            ctx.Message.Payload,
+                            ctx.Message.CreatedAt
+                        }))
+                        .Then(ctx => LogMessage(logger, ctx.Message))
+                        .TransitionTo(ShippingSubmittedState)
+                )
         );
 
         During(ShippingSubmittedState,
             When(ShippingAcceptedEvent)
                 .Then(context => LogMessage(logger, context.Message))
-                .PublishAsync(async context =>
+                .PublishAsync(ctx => ctx.Init<FinalEvent>(new
                 {
-                    await context.Init<FinalEvent>(new
-                    {
-                        context.CorrelationId,
-                        context.Message.CurrentState,
-                        context.Message.Payload,
-                        context.Message.CreatedAt
-                    });
-
-                    return context;
-                })
+                    ctx.CorrelationId,
+                    ctx.Message.CurrentState,
+                    ctx.Message.Payload,
+                    ctx.Message.CreatedAt
+                }))
                 .TransitionTo(FinalState),
 
             When(ShippingCancelledEvent)
